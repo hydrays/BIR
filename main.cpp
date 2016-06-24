@@ -1,0 +1,120 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include "lbfgs.h"
+#include "inference.hpp"
+#include <boost/random.hpp>
+#include <boost/random/random_device.hpp>
+
+lbfgsfloatval_t evaluate(void *instance,
+			 const double * x,
+			 double *g,
+			 const int n,
+			 const lbfgsfloatval_t step) {
+    Inference * inference = 
+	static_cast<Inference *>(instance);
+    double SL = inference->evaluate(n, x, g);
+    //printf("%.10f, %.10f, %.10f, %.10f\n", SL, x[0], x[1], x[2]);
+    //printf("%.10f, %.10f, %.10f, %.10f\n", SL, g[0], g[1], g[2]);
+    //getchar();
+    return SL;
+}
+
+int progress(void *instance,
+	     const double *s,
+	     const double *g,
+	     const double SL,
+	     const lbfgsfloatval_t xnorm,
+	     const lbfgsfloatval_t gnorm,
+	     const lbfgsfloatval_t step,
+	     int n,
+	     int k,
+	     int ls) {
+    //if (k%10 == 0) {
+    printf("Iteration %d:  ",k);
+    printf("Object function = %16.15f  ", SL);
+    printf(" = %16.15f  step = %16.15f\n", gnorm, step);
+    //}
+    return 0;
+}
+
+int main()
+{
+    lbfgs_parameter_t param;
+    double * x;
+    double SL;
+    Inference inference;
+    inference.init();
+    int nsample = 10;
+
+    boost::mt19937 gen;
+    //gen.seed(time(0));
+    boost::uniform_int<> real(1, 999);
+    //boost::uniform_01<boost::hellekalek1995> runif(gen);
+    boost::uniform_int<> runif_int(0, inference.L-1);
+
+    int N = 3;
+    x = new double[N];
+    if(x==NULL)
+    {
+	std::cout<<"Allocating storage FAILED!"<< "\n";
+	return -1;
+    }
+
+    for ( int nstep=0; nstep < nsample; nstep++ )
+    {
+	//swipe the frame and optimize the parameter for each bright spot.
+	for (int i=0; i<inference.L; i++)
+	{
+	    if (inference.frame.E[i] == 1){
+		inference.active_spot_index = i;
+		for (int i=0; i<N; i++)
+		{
+		    x[i] = 1.0;
+		}
+		lbfgs_parameter_init(&param);
+		param.m = 10;
+		//param.epsilon = 1e-5;
+		param.max_iterations = 20000;
+		param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+		printf("here1\n");
+		int status = lbfgs(N,x,&SL,evaluate,progress,&inference,&param);
+		if (status == 0)
+		{
+		    printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
+		}
+		else
+		{
+		    printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
+		    getchar();
+		}
+	    }
+	}
+
+	//randomly choose spot and set it bright or dark.
+	//int spot_id = 5;
+	for (int i=0; i<20; i++)
+	{
+	    int spot_id = runif_int(gen);
+	    printf("check spot %d: %lf:%lf\n", spot_id, 
+		   inference.get_dark_logprob(spot_id),
+		   inference.get_bright_logprob(spot_id));
+	    //getchar();
+
+	    if (inference.get_dark_logprob(spot_id) - 
+		inference.get_bright_logprob(spot_id) > 0)
+	    {
+		inference.frame.E[spot_id] = 0;
+	    }
+	    else
+	    {
+		inference.frame.E[spot_id] = 1;
+	    }
+	}
+    }
+    inference.output_result();
+    return 0;
+}	
+	
+
