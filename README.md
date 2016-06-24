@@ -2,7 +2,7 @@
 Bayesian Image Reconstruction
 
 # Requirement
-cmake \br
+cmake 
 boost
 libGMP
 libBFGS
