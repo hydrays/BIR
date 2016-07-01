@@ -1,11 +1,10 @@
-#include <math.h>
+//#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include "lbfgs.h"
 #include "inference.hpp"
-#include <boost/random.hpp>
-#include <boost/random/random_device.hpp>
+//#include <boost/random.hpp>
 
 lbfgsfloatval_t evaluate(void *instance,
 			 const double * x,
@@ -32,9 +31,9 @@ int progress(void *instance,
 	     int k,
 	     int ls) {
     //if (k%10 == 0) {
-    printf("Iteration %d:  ",k);
-    printf("Object function = %16.15f  ", SL);
-    printf(" = %16.15f  step = %16.15f\n", gnorm, step);
+    // printf("Iteration %d:  ",k);
+    // printf("Object function = %16.15f  ", SL);
+    // printf(" = %16.15f  step = %16.15f\n", gnorm, step);
     //}
     return 0;
 }
@@ -46,13 +45,14 @@ int main()
     double SL;
     Inference inference;
     inference.init();
-    int nsample = 10;
+    int nsample = 1000;
+    double E1, E2;
 
-    boost::mt19937 gen;
+    //boost::mt19937 gen;
     //gen.seed(time(0));
-    boost::uniform_int<> real(1, 999);
+    //boost::uniform_int<> real(1, 999);
     //boost::uniform_01<boost::hellekalek1995> runif(gen);
-    boost::uniform_int<> runif_int(0, inference.L-1);
+    //boost::uniform_int<> runif_int(0, inference.L-1);
 
     int N = 3;
     x = new double[N];
@@ -64,6 +64,7 @@ int main()
 
     for ( int nstep=0; nstep < nsample; nstep++ )
     {
+	printf("Iteration: %d\n", nstep);
 	//swipe the frame and optimize the parameter for each bright spot.
 	for (int i=0; i<inference.L; i++)
 	{
@@ -78,11 +79,11 @@ int main()
 		//param.epsilon = 1e-5;
 		param.max_iterations = 20000;
 		param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-		printf("here1\n");
+		//printf("here1\n");
 		int status = lbfgs(N,x,&SL,evaluate,progress,&inference,&param);
 		if (status == 0)
 		{
-		    printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
+		    //printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
 		}
 		else
 		{
@@ -94,23 +95,35 @@ int main()
 
 	//randomly choose spot and set it bright or dark.
 	//int spot_id = 5;
-	for (int i=0; i<20; i++)
+	//for (int i=0; i<20; i++)
+	for (int i=90; i<120; i++)
 	{
-	    int spot_id = runif_int(gen);
-	    printf("check spot %d: %lf:%lf\n", spot_id, 
-		   inference.get_dark_logprob(spot_id),
-		   inference.get_bright_logprob(spot_id));
-	    //getchar();
+	    for (int j=0; j<108; j++)
+	    {
+		//int spot_id = runif_int(gen);
+		int spot_id = i*108+j;
+		// printf("check spot %d: (dark: %.10lf ||| bright: %.10lf)\n", spot_id, 
+		//        inference.get_dark_mlogp(spot_id),
+		//        inference.get_bright_mlogp(spot_id));
+		//getchar();
 
-	    if (inference.get_dark_logprob(spot_id) - 
-		inference.get_bright_logprob(spot_id) > 0)
-	    {
-		inference.frame.E[spot_id] = 0;
+		E1 = inference.get_dark_mlogp(spot_id);
+		E2 = inference.get_bright_mlogp(spot_id);
+		if (E1 - E2 <= 5.0)
+		{
+		    inference.frame.E[spot_id] = 0;
+		}
+		else
+		{
+		    inference.frame.E[spot_id] = 1;
+		}
+		printf("check spot %d: (dark: %.10lf | bright: %.10lf)\n", spot_id, E1, E2);
 	    }
-	    else
-	    {
-		inference.frame.E[spot_id] = 1;
-	    }
+	}
+	if ( nstep%1 == 0 )
+	{
+	    inference.output_result();
+	    inference.output_evidence();
 	}
     }
     inference.output_result();

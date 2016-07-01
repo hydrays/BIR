@@ -9,10 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include <math.h>
 #include <stdio.h>
-#include <boost/random.hpp>
-#include <boost/random/random_device.hpp>
+//#include <boost/random.hpp>
 //#include "ultis.hpp"
 
 #define PI 3.1415926535
@@ -30,5 +30,7 @@ public:
     int free();
     double dist2(const int, const int);
     int fake(const double);
+    int ReadRawData(const char *);
+    int output_evidence();
 };
 #endif /* EVIDENCE_HPP_ */

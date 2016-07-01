@@ -7,8 +7,8 @@ int Evidence::free()
 
 int Evidence::init()
 {
-    Ndim = 4;
-    Mdim = 4;
+    Ndim = 120;
+    Mdim = 108;
     L = Ndim * Mdim;
     s = new double[L];
     if(s==NULL)
@@ -36,4 +36,38 @@ double Evidence::dist2(const int i, const int j)
     int dy = floor(i/Ndim) - floor(j/Ndim);
     double res = dx*dx + dy*dy;
     return res;
+}
+
+int Evidence::ReadRawData(const char * file_name)
+{
+    std::ifstream myData(file_name, std::ios::binary);
+    short value;
+    int i = 0;
+    char buf[sizeof(short)];
+    while (myData.read(buf, sizeof(buf)))
+    {
+	memcpy(&value, buf, sizeof(value));
+	//std::cout << value << " ";
+	s[i] = value;
+	i++;
+    }
+    if ( i != L ) { std::cout << "read raw file error"; return -1;}
+    //std::cout << std::endl << "Total count: " << i << std::endl;
+    return 0;
+}
+
+int Evidence::output_evidence()
+{
+    FILE * fp;
+    if ( (fp = fopen("evidence.txt", "w")) == NULL )
+    {
+	std::cout << "file open failed. \n";
+	getchar();
+    }
+    for (int i=0; i<L; i++)
+    {
+	fprintf(fp, "%.10f\n", s[i]);
+    }    
+    fclose(fp);
+    return 0;
 }

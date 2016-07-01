@@ -1,14 +1,10 @@
 #ifndef INFERENCE_HPP_
 #define INFERENCE_HPP_
 
-#include "gdal_priv.h"
-#include "cpl_conv.h"
-#include "cpl_string.h"
-#include "ogr_srs_api.h"
-#include "ogr_spatialref.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include "evidence.hpp"
 #include "frame.hpp"
 #include "lbfgs.h"
@@ -36,6 +32,8 @@ public:
     long int L;
     Frame frame;
     long int active_spot_index;
+    double s0 = 100;
+    double sigma = 10;
     std::vector<Evidence> evidence_list;
 
 public:
@@ -43,9 +41,12 @@ public:
     int free();
     ~Inference();
     double evaluate(const int n, const double *, double *);    
-    double get_bright_logprob(const int);
-    double get_dark_logprob(const int);
+    double get_bright_mlogp(const int);
+    double get_dark_mlogp(const int);
     int output_result();
+    int output_evidence();
+    int GetEvidence();
+    double TuningSpot(const int);
 };
 
 #endif /* INFERENCE_HPP_ */
