@@ -21,7 +21,7 @@ public:
     double * A;
     double * B;
     double * phi;
-    double * mu;
+    double ** mu;
     int * E;
 
     double * psf_;
@@ -34,7 +34,8 @@ public:
     std::normal_distribution<> rnorm{100.0, 10.0};
 
 public:
-    int init();
+    //int init();
+    int init(const int);
     int free();
     ~Frame();
     int update_frame();
@@ -46,7 +47,7 @@ public:
     double dist2(const int, const int);
     double CoordDist(const int, const int);
     int ReadPsf(const char *);
-    int UpdateMu(const double);
+    int UpdateSingleMu(const int, const double);
 
 // lbfgsfloatval_t evaluate(void *,
 // 				    const double *,

@@ -2,8 +2,6 @@
 
 int Inference::init()
 {
-    frame.init();
-    active_spot_index = 10;
     Ndim = 120;
     Mdim = 108;
     L = Mdim * Ndim;
@@ -17,7 +15,27 @@ int Inference::init()
     // 	evidence_list.push_back(evidence);
     // }
 
+    delta_mu = new double[L];
+    if(delta_mu==NULL)
+    {
+	std::cout<<"Allocating storage for delta_mu FAILED!"<< "\n";
+	return -1;
+    }
+
+    lbfgs_x = new double[lbfgs_N];
+    if(lbfgs_x==NULL)
+    {
+	std::cout<<"Allocating storage for lbfgs FAILED!"<< "\n";
+	return -1;
+    }
+    lbfgs_parameter_init(&param);
+    param.m = 10;
+    //param.epsilon = 1e-5;
+    param.max_iterations = 20000;
+    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+
     GetEvidence();
+    frame.init(evidence_num);
     return 0;
 }
 
@@ -49,6 +67,7 @@ int Inference::GetEvidence()
 	evidence.ReadRawData(data_file_name.c_str());
 	evidence_list.push_back(evidence);
     }
+    evidence_num = evidence_list.size();
     return 0;
 }
 
@@ -62,90 +81,80 @@ double Inference::evaluate(const int N, const double * x, double * g)
     double mlogp = 0.0;
     double logp;
     double temp;
+    double t;
+    double onsite_mu;
+    double old_onsite_mu;
+    //double xx[3];
     for (int i=0; i<N; i++)
     {
 	g[i] = 0.0;
     }
     //printf("Inference: 2\n");
-    for(std::vector<Evidence>::iterator iter = evidence_list.begin(); 
-	iter != evidence_list.end(); iter++)
+    for(int k=0; k< evidence_list.size(); k++)
     {
-	frame.update_bright_spot(active_spot_index, x, iter->time_stamp);
-	//if ( frame.mu[active_spot_index] > EPSILON ) 
-	//{
-	    // logp = iter->s[active_spot_index] * log(frame.mu[active_spot_index])
-	    // 	- frame.mu[active_spot_index];
-	    // mlogp = mlogp - logp;
-	    // temp = 1.0 - iter->s[active_spot_index]/frame.mu[active_spot_index];
-	    // g[0] = g[0] + frame.CoordDist(0,0)*2.0*x[0]*temp*(1.0+cos(2.0*PI*iter->time_stamp-2.0*frame.phi[active_spot_index]));
-	    // g[1] = g[1] + frame.CoordDist(0,0)*2.0*x[1]*temp;
-	    // g[2] = g[2] + frame.CoordDist(0,0)*2.0*temp*frame.A[active_spot_index]*frame.A[active_spot_index]*
-	    // 	sin(2.0*PI*iter->time_stamp-2.0*frame.phi[active_spot_index]);
-	    logp = log(sqrt(2*PI)*sigma) - pow(iter->s[active_spot_index] - frame.mu[active_spot_index] - s0, 2)/(2.0*sigma*sigma);
-	    mlogp = mlogp - logp;
-	    temp = -(iter->s[active_spot_index] - frame.mu[active_spot_index] - s0)/(sigma*sigma);
-	    g[0] = g[0] + frame.CoordDist(0,0)*2.0*x[0]*temp*(1.0+cos(2.0*PI*iter->time_stamp-2.0*frame.phi[active_spot_index]));
-	    g[1] = g[1] + frame.CoordDist(0,0)*2.0*x[1]*temp;
-	    g[2] = g[2] + frame.CoordDist(0,0)*2.0*temp*frame.A[active_spot_index]*frame.A[active_spot_index]*
-	    	sin(2.0*PI*iter->time_stamp-2.0*frame.phi[active_spot_index]);
+	// printf("X: %.10f, %.10f, %.10f\n", x[0], x[1], x[2]);
+	// printf("Bright List: \n");	
+	t = evidence_list[k].time_stamp;
+	if (frame.E[active_spot_index]==-1)
+	{ 
+	    old_onsite_mu = 0.0;
+	}
+	else
+	{
+	    printf("do not support this...\n");
+	    getchar();
+	    // xx[0] = frame.A[active_spot_index];
+	    // xx[1] = frame.B[active_spot_index];
+	    // xx[2] = frame.phi[active_spot_index];
+	    // old_onsite_mu = frame.CoordDist(0,0)*(xx[0]*xx[0]*(1.0+cos(2.0*PI*t-2.0*xx[2])) + xx[1]*xx[1]);
+	}
+	onsite_mu = -old_onsite_mu + frame.mu[k][active_spot_index] +
+	    frame.CoordDist(0,0)*
+	    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+	//printf("%.10f, %.10f, %.10f\n", mu[active_spot_index], x[0], x[1]);
 
-	    // g[0] = g[0] + frame.CoordDist(0,0)*2.0*x[0]*temp*(1.0+cos(2.0*PI*iter->time_stamp-2.0*x[2]));
-	    // g[1] = g[1] + frame.CoordDist(0,0)*2.0*x[1]*temp;
-	    // g[2] = g[2] + frame.CoordDist(0,0)*2.0*temp*x[0]*x[0]*
-	    // 	sin(2.0*PI*iter->time_stamp-2.0*x[2]);
-
-	    // g[0] = 0.0;
-	    // g[1] = g[1] - temp;
-	    // g[2] = 0.0;
-	// }
-	// else
-	// {
-	//     printf("invalid mu %.10lf \n", frame.mu[active_spot_index]);
-	//     getchar();
-	//     // logp = -100.0;
-	//     // SL = SL - logp;
-	//     // g[0] = g[0] - 1.0;
-	//     // g[1] = g[1] - 1.0;
-	//     // g[2] = g[2] - 1.0;
-	// }
-
-	// printf("Inference: logp:  %lf, s: %lf, mu: %lf, t: %lf\n",
-	//         logp, iter->s[active_spot_index]-s0, frame.mu[active_spot_index], iter->time_stamp);
-	//getchar();
+	//printf("finished! \n");	
+	//printf("Frame::update_spot 2\n");
+	//frame.update_bright_spot(active_spot_index, x, iter->time_stamp);
+	logp = log(sqrt(2*PI)*sigma) - 
+	    pow(evidence_list[k].s[active_spot_index] - onsite_mu - s0, 2)/(2.0*sigma*sigma);
+	mlogp = mlogp - logp;
+	temp = -(evidence_list[k].s[active_spot_index] - onsite_mu - s0)/(sigma*sigma);
+	g[0] = g[0] + frame.CoordDist(0,0)*2.0*x[0]*temp*(1.0+cos(2.0*PI*t-2.0*x[2]));
+	g[1] = g[1] + frame.CoordDist(0,0)*2.0*x[1]*temp;
+	g[2] = g[2] + frame.CoordDist(0,0)*2.0*temp*x[0]*x[0]*sin(2.0*PI*t-2.0*x[2]);
     }
     //printf("Inference: 3\n");
     return mlogp;
 }
 
+int Inference::UpdateMu()
+{
+    double t;
+    for(int k=0; k< evidence_list.size(); k++)
+    {
+	t = evidence_list[k].time_stamp;
+	frame.UpdateSingleMu(k, t);
+    }
+    return 0;
+}
+
 double Inference::TuningSpot(const int spot_index)
 {
-    active_spot_index = spot_index;
-    // set E = 1 before optimize this spot
-    frame.E[active_spot_index] = 1;
+    //frame.E[spot_index] = 1;
     
-    int N = 3;
     double mlogp = 0.0;
-    double * x = new double[N];
-    if(x==NULL)
+    for (int i=0; i<lbfgs_N; i++)
     {
-	std::cout<<"Allocating storage FAILED!"<< "\n";
-	return -1;
+	lbfgs_x[i] = 1.0;
     }
 
-    for (int i=0; i<N; i++)
-    {
-	x[i] = 1.0;
-    }
-    lbfgs_parameter_t param;
-    lbfgs_parameter_init(&param);
-    param.m = 10;
-    //param.epsilon = 1e-5;
-    param.max_iterations = 20000;
-    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    int status = lbfgs(N,x,&mlogp,inner_evaluate,inner_progress,this,&param);
+    active_spot_index = spot_index;
+    int status = lbfgs(lbfgs_N,lbfgs_x,&mlogp,_evaluate,NULL,this,&param);
     if (status == 0)
     {
-	printf("Inner L-BFGS optimization terminated with status code = %d, mlogp=%f, x=%lf, %lf, %lf\n",status, mlogp, x[0], x[1], x[2]);
+	printf("Inner L-BFGS optimization terminated with status code = %d, mlogp=%f, x=%lf, %lf, %lf\n",
+	       status, mlogp, lbfgs_x[0], lbfgs_x[1], lbfgs_x[2]);
 	//getchar();
     }
     else
@@ -156,108 +165,373 @@ double Inference::TuningSpot(const int spot_index)
     return mlogp;
 }
 
-double Inference::get_dark_mlogp(const int i)
+double Inference::FlipEnergyDiff(const int spot_index)
 {
-    active_spot_index = i;
+    double E1 = GetCurrentMlogp(spot_index);
+    double E2 = GetFlipMlogp(spot_index);
+    if (frame.E[spot_index] == 1)
+    {
+	E2 = E2 - 500.0;
+    }
+    else
+    {
+	E1 = E1 - 500.0;
+    }
+    printf("FlipEnergyDiff: %d, %16lf, %16lf \n", spot_index, E2, E1);
+    printf("frame status: %lf, %lf, %lf \n", frame.A[spot_index], frame.B[spot_index], frame.phi[spot_index]);
+    return E2 - E1;
+}
+
+double Inference::GetCurrentMlogp(const int spot_index)
+{
     double logp;
     double mlogp = 0.0;
-    int k;
-    frame.E[active_spot_index] = 0;
-    for(std::vector<Evidence>::iterator iter = evidence_list.begin(); 
-	iter != evidence_list.end(); iter++)
-    {
-	frame.UpdateMu(iter->time_stamp);
+    double _s;
+    double _mu;
+    int l;
 
-	k = active_spot_index;
-	logp = log(sqrt(2*PI)*sigma) - 
-	    pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
+    for(int k=0; k< evidence_list.size(); k++)
+    {
+	l = spot_index;
+	_s = evidence_list[k].s[l];
+	_mu = frame.mu[k][l];
+	logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	mlogp = mlogp - logp;
 
-	if ( (active_spot_index+1) % Mdim !=0 )
-	{
-	    k = active_spot_index+1;
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+    	if ( (spot_index+1) % Mdim !=0 )
+    	{
+	    l = spot_index+1;
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l];
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
-	}
+    	}
 
-	if ( active_spot_index % Mdim !=0 )
-	{
-	    k = active_spot_index-1;
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
+    	if ( spot_index % Mdim !=0 )
+    	{
+	    l = spot_index-1;
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l];
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
-	}
-	if ( floor((active_spot_index) / Mdim) !=0 )
-	{
-	    k = active_spot_index+Mdim;
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+    	}
+    	if ( floor((spot_index) / Mdim) !=0 )
+    	{
+	    l = spot_index+Mdim;
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l];
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
-	}
-	if ( floor(active_spot_index / Mdim) != Ndim-1 )
-	{
-	    k = active_spot_index-Mdim;
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
+    	}
+    	if ( floor(spot_index / Mdim) != Ndim-1 )
+    	{
+	    l = spot_index-Mdim;
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l];
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
-	}
-
+    	}
     }
     return mlogp;
 }
 
-double Inference::get_bright_mlogp(const int i)
+double Inference::GetFlipMlogp(const int spot_index)
 {
-    active_spot_index = i;
     double logp;
-    frame.E[active_spot_index] = 1;
-    double mlogp = TuningSpot(active_spot_index);
-    int k;
-    for(std::vector<Evidence>::iterator iter = evidence_list.begin(); 
-	iter != evidence_list.end(); iter++)
-    {
-	frame.UpdateMu(iter->time_stamp);
-	if ( (active_spot_index+1) % Mdim !=0 )
-	{
-	    k = active_spot_index+1;
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
-	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
-	    mlogp = mlogp - logp;
-	}
+    double mlogp;
+    int l;
+    double _s;
+    double _mu;
+    double x[3];
+    x[0] = lbfgs_x[0];
+    x[1] = lbfgs_x[1];
+    x[2] = lbfgs_x[2];
+    double t;
 
-	if ( active_spot_index % Mdim !=0 )
+    if (frame.E[spot_index] == 1)
+    {
+	//mlogp = TuningSpot(spot_index);
+	mlogp = 0.0;
+	for(int k=0; k< evidence_list.size(); k++)
 	{
-	    k = active_spot_index-1;
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
+	    t = evidence_list[k].time_stamp;
+
+	    l = spot_index;
+	    x[0] = frame.A[l];
+	    x[1] = frame.B[l];
+	    x[2] = frame.phi[l];
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
+
+	    if ( (spot_index+1) % Mdim !=0 )
+	    {
+		l = spot_index+1;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+
+	    if ( spot_index % Mdim !=0 )
+	    {
+		l = spot_index-1;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+	    if ( floor((spot_index) / Mdim) !=0 )
+	    {
+		l = spot_index+Mdim;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+	    if ( floor(spot_index / Mdim) != Ndim-1 )
+	    {
+		l = spot_index-Mdim;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
 	}
-	if ( floor((active_spot_index) / Mdim) !=0 )
+    }
+    else{
+	mlogp = TuningSpot(spot_index);
+	for(int k=0; k< evidence_list.size(); k++)
 	{
-	    k = active_spot_index+Mdim;
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+	    t = evidence_list[k].time_stamp;
+
+	    l = spot_index;
+	    x[0] = lbfgs_x[0];
+	    x[1] = lbfgs_x[1];
+	    x[2] = lbfgs_x[2];
+	    _s = evidence_list[k].s[l];
+	    _mu = frame.mu[k][l] + (frame.CoordDist(spot_index,l)*
+				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
 	    mlogp = mlogp - logp;
-	}
-	if ( floor(active_spot_index / Mdim) != Ndim-1 )
-	{
-	    k = active_spot_index-Mdim;
-	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
-	    logp = log(sqrt(2*PI)*sigma) - 
-		pow(iter->s[k] - frame.mu[k] - s0, 2)/(2.0*sigma*sigma);
-	    mlogp = mlogp - logp;
+
+	    if ( (spot_index+1) % Mdim !=0 )
+	    {
+		l = spot_index+1;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] + (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+
+	    if ( spot_index % Mdim !=0 )
+	    {
+		l = spot_index-1;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] + (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+	    if ( floor((spot_index) / Mdim) !=0 )
+	    {
+		l = spot_index+Mdim;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] + (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
+	    if ( floor(spot_index / Mdim) != Ndim-1 )
+	    {
+		l = spot_index-Mdim;
+		_s = evidence_list[k].s[l];
+		_mu = frame.mu[k][l] + (frame.CoordDist(spot_index,l)*
+					(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+		logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+		//printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+		mlogp = mlogp - logp;
+	    }
 	}
     }
     return mlogp;
 }
+
+// double Inference::get_dark_mlogp(const int spot_index)
+// {
+//     double logp;
+//     double mlogp = 0.0;
+//     double _s;
+//     double _mu;
+//     double x[3];
+//     double t;
+//     int l;
+//     for(int k=0; k< evidence_list.size(); k++)
+//     {
+// 	t = evidence_list[k].time_stamp;
+
+//     	l = spot_index;
+// 	x[0] = frame.A[l];
+// 	x[1] = frame.B[l];
+// 	x[2] = frame.phi[l];
+// 	_s = evidence_list[k].s[l];
+// 	_mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+// 				(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+// 	logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	//printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	mlogp = mlogp - logp;
+
+//     	if ( (spot_index+1) % Mdim !=0 )
+//     	{
+// 	    l = spot_index+1;
+// 	    x[0] = frame.A[l];
+// 	    x[1] = frame.B[l];
+// 	    x[2] = frame.phi[l];
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+// 				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+//     	}
+
+//     	if ( spot_index % Mdim !=0 )
+//     	{
+// 	    l = spot_index-1;
+// 	    x[0] = frame.A[l];
+// 	    x[1] = frame.B[l];
+// 	    x[2] = frame.phi[l];
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+// 				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+//     	}
+//     	if ( floor((spot_index) / Mdim) !=0 )
+//     	{
+// 	    l = spot_index+Mdim;
+// 	    x[0] = frame.A[l];
+// 	    x[1] = frame.B[l];
+// 	    x[2] = frame.phi[l];
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+// 				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+//     	}
+//     	if ( floor(spot_index / Mdim) != Ndim-1 )
+//     	{
+// 	    l = spot_index-Mdim;
+// 	    x[0] = frame.A[l];
+// 	    x[1] = frame.B[l];
+// 	    x[2] = frame.phi[l];
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] - (frame.CoordDist(spot_index,l)*
+// 				    (x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]));
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+//     	}
+
+//     }
+//     return mlogp;
+// }
+
+// double Inference::get_bright_mlogp(const int spot_index)
+// {
+//     double logp;
+//     double mlogp = TuningSpot(spot_index);
+//     int l;
+//     double _s;
+//     double _mu;
+//     double x[3];
+//     x[0] = lbfgs_x[0];
+//     x[1] = lbfgs_x[1];
+//     x[2] = lbfgs_x[2];
+//     double t;
+
+//     for(int k=0; k< evidence_list.size(); k++)
+//     {
+// 	t = evidence_list[k].time_stamp;
+// 	// if (frame.E[active_spot_index]==0)
+// 	// { 
+// 	//     old_onsite_mu = 0.0;
+// 	// }
+// 	// else
+// 	// {
+// 	//     xx[0] = frame.A[active_spot_index];
+// 	//     xx[1] = frame.B[active_spot_index];
+// 	//     xx[2] = frame.phi[active_spot_index];
+// 	//     old_onsite_mu = frame.CoordDist(0,0)*(xx[0]*xx[0]*(1.0+cos(2.0*PI*t-2.0*xx[2])) + xx[1]*xx[1]);
+// 	// }
+
+// 	if ( (spot_index+1) % Mdim !=0 )
+// 	{
+// 	    l = spot_index+1;
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] + frame.CoordDist(spot_index,l)*
+// 		(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+// 	}
+
+// 	if ( spot_index % Mdim !=0 )
+// 	{
+// 	    l = spot_index-1;
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] + frame.CoordDist(spot_index,l)*
+// 		(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("bright %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+// 	}
+// 	if ( floor((spot_index) / Mdim) !=0 )
+// 	{
+// 	    l = spot_index+Mdim;
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] + frame.CoordDist(spot_index,l)*
+// 		(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+// 	}
+// 	if ( floor(spot_index / Mdim) != Ndim-1 )
+// 	{
+// 	    l = spot_index-Mdim;
+// 	    _s = evidence_list[k].s[l];
+// 	    _mu = frame.mu[k][l] + frame.CoordDist(spot_index,l)*
+// 		(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+// 	    logp = log(sqrt(2*PI)*sigma) - pow( _s - _mu - s0, 2)/(2.0*sigma*sigma);
+// 	    //printf("dark %d, logp: %lf, s: %lf, mu: %lf \n", k, logp, iter->s[k]-s0, frame.mu[k]);
+// 	    mlogp = mlogp - logp;
+// 	}
+//     }
+//     return mlogp;
+// }
 
 int Inference::output_result()
 {
@@ -282,11 +556,11 @@ int Inference::free()
     return 0;
 }
 
-static lbfgsfloatval_t inner_evaluate(void *instance,
-				      const double * x,
-				      double *g,
-				      const int n,
-				      const lbfgsfloatval_t step) {
+lbfgsfloatval_t _evaluate(void *instance,
+			  const double * x,
+			  double *g,
+			  const int n,
+			  const lbfgsfloatval_t step) {
     Inference * inference = 
 	static_cast<Inference *>(instance);
     double mlogp = inference->evaluate(n, x, g);
@@ -294,22 +568,4 @@ static lbfgsfloatval_t inner_evaluate(void *instance,
     //printf("Inner: %.10f, %.10f, %.10f, %.10f\n", mlogp, g[0], g[1], g[2]);
     //getchar();
     return mlogp;
-}
-
-static int inner_progress(void *instance,
-			  const double *s,
-			  const double *g,
-			  const double SL,
-			  const lbfgsfloatval_t xnorm,
-			  const lbfgsfloatval_t gnorm,
-			  const lbfgsfloatval_t step,
-			  int n,
-			  int k,
-			  int ls) {
-    //if (k%10 == 0) {
-	// printf("Iteration %d:  ",k);
-	// printf("Object function = %16.15f  ", SL);
-	// printf(" = %16.15f  step = %16.15f\n", gnorm, step);
-	//}
-    return 0;
 }

@@ -1,6 +1,64 @@
 #include "frame.hpp"
 
-int Frame::init()
+// // int Frame::init()
+// {
+//     printf("Frame::init 1\n");
+
+//     psf_ndim_ = 129;
+//     psf_mdim_ = 129;
+//     psf_L_ = psf_ndim_*psf_mdim_;
+//     psf_ = new double[psf_L_];
+//     if(psf_==NULL)
+//     {
+// 	std::cout<<"Allocating storage for psf FAILED!"<< "\n";
+// 	return -1;
+//     }
+
+//     ReadPsf("data/psf.txt");
+//     //printf("test CoordDist: %d, %d, %lf\n", (psf_ndim_+1)/2-1, (psf_mdim_+1)/2-1, psf_[((psf_ndim_+1)/2-1)*psf_mdim_ + (psf_mdim_+1)/2-1]);
+
+//     Ndim = 120;
+//     Mdim = 108;
+//     L = Mdim * Ndim;
+//     A = new double[L];
+//     B = new double[L];
+//     phi = new double[L];
+//     mu = new double[L];
+//     E = new int[L];
+//     if(A==NULL | B==NULL | phi==NULL | mu==NULL | E==NULL)
+//     {
+// 	std::cout<<"Allocating storage for WeightMatrix FAILED!"<< "\n";
+// 	return -1;
+//     }
+//     for (int i=0; i<L; i++)
+//     {
+// 	A[i] = 0.0;
+// 	B[i] = 0.0;
+// 	phi[i] = 0.0;
+// 	E[i] = 0;
+//     }
+//     for (int i=0; i<L; i++)
+//     {
+// 	mu[i] = 0.0;
+// 	for (int j=0; j<L; j++)
+// 	{
+// 	    if ( E[j] == 1 )
+// 	    {
+// 		mu[i] = mu[i] + CoordDist(i, j)*
+// 		    (A[j]*A[j]*(1.0+cos(-2.0*phi[j])) + B[j]*B[j]);
+// 	    }
+// 	}
+// 	// if (mu[i] < EPSILON)
+// 	// {
+// 	//     mu[i] = EPSILON;
+// 	// }
+//     }    
+//     output_file_name = "result.txt";
+
+//     return 0;
+// }
+
+int Frame::init(const int evidence_num)
 {
     printf("Frame::init 1\n");
 
@@ -23,36 +81,47 @@ int Frame::init()
     A = new double[L];
     B = new double[L];
     phi = new double[L];
-    mu = new double[L];
+    mu = new double*[L];
     E = new int[L];
     if(A==NULL | B==NULL | phi==NULL | mu==NULL | E==NULL)
     {
 	std::cout<<"Allocating storage for WeightMatrix FAILED!"<< "\n";
 	return -1;
     }
+    for (int i=0; i<evidence_num; i++)
+    {
+	mu[i] = new double[L];
+	if(mu[i]==NULL)
+	{
+	    std::cout<<"Allocating storage for mu FAILED!"<< "\n";
+	    return -1;
+	}
+    }
+
     for (int i=0; i<L; i++)
     {
 	A[i] = 0.0;
 	B[i] = 0.0;
 	phi[i] = 0.0;
-	E[i] = 0;
+	E[i] = -1;
     }
-    for (int i=0; i<L; i++)
-    {
-	mu[i] = 0.0;
-	for (int j=0; j<L; j++)
-	{
-	    if ( E[j] == 1 )
-	    {
-		mu[i] = mu[i] + CoordDist(i, j)*
-		    (A[j]*A[j]*(1.0+cos(-2.0*phi[j])) + B[j]*B[j]);
-	    }
-	}
-	// if (mu[i] < EPSILON)
-	// {
-	//     mu[i] = EPSILON;
-	// }
-    }    
+    //UpdateMu(const double t)
+    // for (int i=0; i<L; i++)
+    // {
+    // 	mu[i] = 0.0;
+    // 	for (int j=0; j<L; j++)
+    // 	{
+    // 	    if ( E[j] == 1 )
+    // 	    {
+    // 		mu[i] = mu[i] + CoordDist(i, j)*
+    // 		    (A[j]*A[j]*(1.0+cos(-2.0*phi[j])) + B[j]*B[j]);
+    // 	    }
+    // 	}
+    // 	// if (mu[i] < EPSILON)
+    // 	// {
+    // 	//     mu[i] = EPSILON;
+    // 	// }
+    // }    
     output_file_name = "result.txt";
 
     return 0;
@@ -154,113 +223,113 @@ int Frame::select_frame()
 //     return 0;
 // }
 
-int Frame::update_bright_spot(const int active_spot_index, const double * x, const double t)
-{
-    //printf("Frame::update_spot at %d, %d for time %lf\n", active_spot_index, E[active_spot_index], t);
-    // printf("X: %.10f, %.10f, %.10f\n", x[0], x[1], x[2]);
-    // printf("Bright List: \n");	
-    mu[active_spot_index] = 0.0;
-    for (int j=0; j<L; j++)
-    {
-    	//printf(" %d, %d\n", j, E[j]);
-    	if ( E[j] == 1)
-    	{
-    	    //mu[active_spot_index] = mu[active_spot_index] + exp(-dist2(active_spot_index, j))*
-    	    //(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
-    	    //printf(" %d: %lf \n", j, CoordDist(active_spot_index, j));
-    	    // printf(" %lf \n", t);
-    	    // printf(" %lf, %lf, %lf \n", A[j], B[j], phi[j]);
-    	    // printf(" %d: %lf \n", j, CoordDist(active_spot_index, j));
-    	    mu[active_spot_index] = mu[active_spot_index] + CoordDist(active_spot_index, j)*
-    		(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
-    	}
-    }
-    mu[active_spot_index] = mu[active_spot_index];
-    if (mu[active_spot_index] < EPSILON)
-    {
-    	mu[active_spot_index] = EPSILON;
-    }
-    //printf("%.10f, %.10f, %.10f\n", mu[active_spot_index], x[0], x[1]);
+// int Frame::update_bright_spot(const int active_spot_index, const double * x, const double t)
+// {
+//     //printf("Frame::update_spot at %d, %d for time %lf\n", active_spot_index, E[active_spot_index], t);
+//     // printf("X: %.10f, %.10f, %.10f\n", x[0], x[1], x[2]);
+//     // printf("Bright List: \n");	
+//     mu[active_spot_index] = 0.0;
+//     for (int j=0; j<L; j++)
+//     {
+//     	//printf(" %d, %d\n", j, E[j]);
+//     	if ( E[j] == 1)
+//     	{
+//     	    //mu[active_spot_index] = mu[active_spot_index] + exp(-dist2(active_spot_index, j))*
+//     	    //(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
+//     	    //printf(" %d: %lf \n", j, CoordDist(active_spot_index, j));
+//     	    // printf(" %lf \n", t);
+//     	    // printf(" %lf, %lf, %lf \n", A[j], B[j], phi[j]);
+//     	    // printf(" %d: %lf \n", j, CoordDist(active_spot_index, j));
+//     	    mu[active_spot_index] = mu[active_spot_index] + CoordDist(active_spot_index, j)*
+//     		(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
+//     	}
+//     }
+//     mu[active_spot_index] = mu[active_spot_index];
+//     if (mu[active_spot_index] < EPSILON)
+//     {
+//     	mu[active_spot_index] = EPSILON;
+//     }
+//     //printf("%.10f, %.10f, %.10f\n", mu[active_spot_index], x[0], x[1]);
 
-    //printf("finished! \n");	
-    double spot_A_old = A[active_spot_index];
-    double spot_B_old = B[active_spot_index];
-    double spot_phi_old = phi[active_spot_index];
-    double spot_mu_old = mu[active_spot_index];
-    //printf("old Value: %.10f, %.10f, %.10f\n", spot_A_old, spot_B_old, spot_phi_old);
-    A[active_spot_index] = x[0];
-    B[active_spot_index] = x[1];
-    phi[active_spot_index] = x[2];
+//     //printf("finished! \n");	
+//     double spot_A_old = A[active_spot_index];
+//     double spot_B_old = B[active_spot_index];
+//     double spot_phi_old = phi[active_spot_index];
+//     double spot_mu_old = mu[active_spot_index];
+//     //printf("old Value: %.10f, %.10f, %.10f\n", spot_A_old, spot_B_old, spot_phi_old);
+//     A[active_spot_index] = x[0];
+//     B[active_spot_index] = x[1];
+//     phi[active_spot_index] = x[2];
 
-    //printf("Frame::update_spot 2\n");
-    double spot_g_old = CoordDist(0,0)*(spot_A_old*spot_A_old*(1.0+cos(2.0*PI*t-2.0*spot_phi_old)) + 
-					spot_B_old*spot_B_old);
-    double spot_g_new = CoordDist(0,0)*(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
-    mu[active_spot_index] = spot_mu_old + spot_g_new - spot_g_old;
-    //mu[active_spot_index] = x[1]; 
-    //printf("%.10f, %.10f, %.10f\n", mu[active_spot_index], x[0], x[1]);
-    //getchar();
-    if (mu[active_spot_index] < EPSILON)
-    {
-	mu[active_spot_index] = EPSILON;
-    }
-    // lbfgs_parameter_t param;
-    // double * x;
-    // double SL;
-    // int N = 3;
-    // x = new double[N];
-    // if(x==NULL)
-    // {
-    // 	std::cout<<"Allocating storage for WeightMatrix FAILED!"<< "\n";
-    // 	return -1;
-    // }
-    // for (int i=0; i<N; i++)
-    // {
-    //     x[i] = 0.0;
-    // }
+//     //printf("Frame::update_spot 2\n");
+//     double spot_g_old = CoordDist(0,0)*(spot_A_old*spot_A_old*(1.0+cos(2.0*PI*t-2.0*spot_phi_old)) + 
+// 					spot_B_old*spot_B_old);
+//     double spot_g_new = CoordDist(0,0)*(x[0]*x[0]*(1.0+cos(2.0*PI*t-2.0*x[2])) + x[1]*x[1]);
+//     mu[active_spot_index] = spot_mu_old + spot_g_new - spot_g_old;
+//     //mu[active_spot_index] = x[1]; 
+//     //printf("%.10f, %.10f, %.10f\n", mu[active_spot_index], x[0], x[1]);
+//     //getchar();
+//     if (mu[active_spot_index] < EPSILON)
+//     {
+// 	mu[active_spot_index] = EPSILON;
+//     }
+//     // lbfgs_parameter_t param;
+//     // double * x;
+//     // double SL;
+//     // int N = 3;
+//     // x = new double[N];
+//     // if(x==NULL)
+//     // {
+//     // 	std::cout<<"Allocating storage for WeightMatrix FAILED!"<< "\n";
+//     // 	return -1;
+//     // }
+//     // for (int i=0; i<N; i++)
+//     // {
+//     //     x[i] = 0.0;
+//     // }
 
-    // lbfgs_parameter_init(&param);
-    // param.m = 10;
-    // //param.epsilon = 1e-5;
-    // param.max_iterations = 20000;
-    // param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
+//     // lbfgs_parameter_init(&param);
+//     // param.m = 10;
+//     // //param.epsilon = 1e-5;
+//     // param.max_iterations = 20000;
+//     // param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
   
-    // int status = lbfgs(N,x,&SL,evaluate,progress,&evidence,&param);
-    // printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
-    return 0;
-}
+//     // int status = lbfgs(N,x,&SL,evaluate,progress,&evidence,&param);
+//     // printf("L-BFGS optimization terminated with status code = %d, lambda=%f\n",status, x[N-1]);
+//     return 0;
+// }
 
-int Frame::update_dark_spot(const int active_spot_index, const double t)
-{
-    //printf("Frame::update_dark_spot at %d, %d for time %lf\n", active_spot_index, E[active_spot_index], t);
-    mu[active_spot_index] = 0.0;
-    for (int j=0; j<L; j++)
-    {
-	if ( E[j] == 1)
-	{
-	    mu[active_spot_index] = mu[active_spot_index] + CoordDist(active_spot_index, j)*
- 		(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
-	    //printf(" %d ", j);
-	}
-    }
-    mu[active_spot_index] = mu[active_spot_index];
-    if (mu[active_spot_index] < EPSILON)
-    {
-	mu[active_spot_index] = EPSILON;
-    }
-    return 0;
-}
+// int Frame::update_dark_spot(const int active_spot_index, const double t)
+// {
+//     //printf("Frame::update_dark_spot at %d, %d for time %lf\n", active_spot_index, E[active_spot_index], t);
+//     mu[active_spot_index] = 0.0;
+//     for (int j=0; j<L; j++)
+//     {
+// 	if ( E[j] == 1)
+// 	{
+// 	    mu[active_spot_index] = mu[active_spot_index] + CoordDist(active_spot_index, j)*
+//  		(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
+// 	    //printf(" %d ", j);
+// 	}
+//     }
+//     mu[active_spot_index] = mu[active_spot_index];
+//     if (mu[active_spot_index] < EPSILON)
+//     {
+// 	mu[active_spot_index] = EPSILON;
+//     }
+//     return 0;
+// }
 
-int Frame::UpdateMu(const double t)
+int Frame::UpdateSingleMu(const int k, const double t)
 {
-    for (int i=3*L/4; i<L; i++)
+    for (int i=0; i<L; i++)
     {
-	mu[i] = 0.0;
-	for (int j=3*L/4; j<L; j++)
+	mu[k][i] = 0.0;
+	for (int j=0; j<L; j++)
 	{
 	    if ( E[j] == 1)
 	    {
-		mu[i] = mu[i] + CoordDist(i, j)*
+		mu[k][i] = mu[k][i] + CoordDist(i,j)*
  		(A[j]*A[j]*(1.0+cos(2.0*PI*t - 2.0*phi[j])) + B[j]*B[j]);
 		//printf(" %d ", j);
 	    }
