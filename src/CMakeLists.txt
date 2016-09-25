@@ -1,1 +1,1 @@
-add_library(src inference.cpp frame.cpp evidence.cpp)
+add_library(src inference.cpp)
