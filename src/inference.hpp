@@ -23,6 +23,8 @@
 #include "opencv2/core/core_c.h"
 #include "opencv2/highgui/highgui_c.h"
 #include "opencv2/imgproc/imgproc_c.h"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 
 using namespace cv;
 
@@ -78,6 +80,8 @@ public:
     //int *E;
 
     std::string output_file_name;
+    std::string data_file_path;
+    std::string psf_file_path;
     std::random_device rd;
     std::mt19937 e2{rd()};
     std::normal_distribution<> rnorm{0.0, 1.0};
@@ -88,17 +92,16 @@ public:
     double lambdaAB1 = 0.8;
     double lambdaAB2 = 0.8;
 
-    double s0 = 17000;
-    double sigma = 1400;
-    //double s0 = 15000;
-    //double sigma = 875;
+    double s0;
+    double sigma;
+    //double s0 = 17000;
+    //double sigma = 1400;
     lbfgs_parameter_t param;
     lbfgs_parameter_t paramAB;
     lbfgs_parameter_t paramPhi;
 
 public:
-    int init();
-    int init(char *);
+    int init(char arg[]=NULL);
     int free();
     ~Inference();
     double evaluate(const int n, const double *, double *);    
@@ -113,7 +116,7 @@ public:
     double TunePhi();
 
     int ReadRawPsf(const char *);
-    int ReadTifPsf(const char *);
+    int ReadTifPsf();
     int ReadTxtPsf(const char *);
     int ReadPhi(const char *);
     int conv2(const Mat_<double>&, const Mat_<double>&, Mat_<double>&);

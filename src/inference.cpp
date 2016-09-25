@@ -1,9 +1,40 @@
 #include "inference.hpp"
 
-int Inference::init()
+int Inference::init(char arg[])
 {
-    Ndim = 73;
-    Mdim = 86;
+    // set parameters
+    boost::property_tree::ptree pTree;
+    try {
+      read_xml("config.xml", pTree);
+      std::cout << "reading config file: " << "config.xml" << std::endl;
+    }
+    catch (boost::property_tree::xml_parser_error e) {
+      std::cout << "error" << std::endl;
+    }
+
+    try {
+      Ndim = pTree.get<int>("main.Ndim");
+      std::cout << "Ndim: " << Ndim << std::endl;
+      Mdim = pTree.get<int>("main.Mdim");
+      std::cout << "Mdim: " << Mdim << std::endl;
+      psf_ndim = pTree.get<int>("main.psf_ndim");
+      std::cout << "psf_ndim: " << psf_ndim << std::endl;
+      psf_mdim = pTree.get<int>("main.psf_mdim");
+      std::cout << "psf_mdim: " << psf_mdim << std::endl;
+      s0 = pTree.get<int>("main.s0");
+      std::cout << "s0: " << s0 << std::endl;
+      sigma = pTree.get<int>("main.sigma");
+      std::cout << "sigma: " << sigma << std::endl;
+
+      data_file_path = pTree.get<std::string>("main.data_file_path");
+      std::cout << "data_file_path: " << data_file_path << std::endl;
+      psf_file_path = pTree.get<std::string>("main.psf_file_path");
+      std::cout << "psf_file_path: " << psf_file_path << std::endl;
+    }
+    catch(boost::property_tree::ptree_bad_path e) {
+      std::cout << "error" << std::endl;
+    }
+
     L = Mdim * Ndim;
 
     // Options for BFGS
@@ -31,10 +62,8 @@ int Inference::init()
     //paramPhi.orthantwise_c = 0.01;
 
     // Read PSF
-    psf_ndim = 51;
-    psf_mdim = 51;
     //ReadTxtPsf("data/psf.txt");
-    ReadTifPsf("data/psf.tif");
+    ReadTifPsf();
 
     // for (int i=0; i<psf_ndim; i++)
     // {
@@ -90,107 +119,17 @@ int Inference::init()
     // 	phi[i] = 0.0;
     // 	E[i] = 1;
     // }
-    output_file_name = "result.txt";
 
-    //ReadPhi("phi.txt");
-    return 0;
-}
-
-int Inference::init(char * arg)
-{
-    Ndim = 73;
-    Mdim = 86;
-    L = Mdim * Ndim;
-
-    // Options for BFGS
-    lbfgs_parameter_init(&param);
-    param.m = 10;
-    param.epsilon = 1e-8;
-    param.max_iterations = 100000;
-    param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
-    //param.orthantwise_c = 0.01;
-
-    // Options for BFGS
-    lbfgs_parameter_init(&paramAB);
-    //paramAB.m = 10;
-    //paramAB.epsilon = 1e-5;
-    paramAB.max_iterations = 2000;
-    paramAB.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-    //paramAB.orthantwise_c = 0.00001;
-
-    // Options for BFGS
-    lbfgs_parameter_init(&paramPhi);
-    paramPhi.m = 10;
-    //paramPhi.epsilon = 1e-5;
-    paramPhi.max_iterations = 2000;
-    paramPhi.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-    //paramPhi.orthantwise_c = 0.01;
-
-    // Read PSF
-    psf_ndim = 51;
-    psf_mdim = 51;
-    //ReadTxtPsf("data/psf.txt");
-    ReadTifPsf("data/psf.tif");
-
-    // for (int i=0; i<psf_ndim; i++)
-    // {
-    // 	for (int j=0; j<psf_mdim; j++)
-    // 	{	
-    // 	    if(psf(i,j)>0) printf("%lf\n", psf(i,j));
-    // 	}
-    // }
-    // waitKey(0);
-    
-    // Read evidence
-    GetImage();
-
-    a = Mat_<double>(Ndim, Mdim);
-    b = Mat_<double>(Ndim, Mdim);
-    phi = Mat_<double>(Ndim, Mdim);
-    // a = tmp.clone();
-    // b = tmp.clone();
-    // phi = tmp.clone();
-    for(int k=0; k < img_list.size(); k++)
+    if (arg == NULL)
     {
-	Mat_<double> tmp1(Ndim, Mdim);
-	g.push_back(tmp1);
-	Mat_<double> tmp2(Ndim, Mdim);
-	mu.push_back(tmp2);
+	output_file_name = "result.txt";
     }
-    // A = new double[L];
-    // B = new double[L];
-    // phi = new double[L];
-    // mu = new double*[L];
-    // g = new double*[L];
-    // E = new int[L];
-    // if(A==NULL | B==NULL | phi==NULL | mu==NULL | E==NULL | g==NULL)
-    // {
-    // 	std::cout<<"Allocating storage for WeightMatrix FAILED!"<< "\n";
-    // 	return -1;
-    // }
-    // for (int i=0; i<img_list.size(); i++)
-    // {
-    // 	mu[i] = new double[L];
-    // 	g[i] = new double[L];
-    // 	if(mu[i]==NULL | g[i]==NULL)
-    // 	{
-    // 	    std::cout<<"Allocating storage for mu FAILED!"<< "\n";
-    // 	    return -1;
-    // 	}
-    // }
-
-    // for (int i=0; i<L; i++)
-    // {
-    // 	A[i] = 10.0;
-    // 	B[i] = 0.0;
-    // 	phi[i] = 0.0;
-    // 	E[i] = 1;
-    // }
-    
-    std::stringstream ss;
-    ss << "result" << arg << ".txt";
-    output_file_name = ss.str();
-
+    else
+    {
+	std::stringstream ss;
+	ss << "result" << arg << ".txt";
+	output_file_name = ss.str();
+    }
     //ReadPhi("phi.txt");
     return 0;
 }
@@ -198,7 +137,7 @@ int Inference::init(char * arg)
 int Inference::GetImage()
 {
     printf("getting image...\n");
-    std::string input_path = "data/";
+    std::string input_path = data_file_path;
     std::string file_list_name = input_path + "filelist.txt";
     FILE * file_list;
     file_list = fopen (file_list_name.c_str(), "r");
@@ -855,11 +794,12 @@ int Inference::ReadRawPsf(const char * file_name)
     return 0;
 }
 
-int Inference::ReadTifPsf(const char * file_name)
+int Inference::ReadTifPsf()
 {
     //Mat_<float> img(psf_ndim, psf_mdim);
     //Mat img(psf_ndim, psf_mdim, DataType<float>::type);
-    Mat img = imread(file_name, CV_LOAD_IMAGE_ANYDEPTH);
+    std::string file_name = psf_file_path + "psf.tif";
+    Mat img = imread(file_name.c_str(), CV_LOAD_IMAGE_ANYDEPTH);
     //namedWindow("Display Image", WINDOW_AUTOSIZE );
     //imshow("Display Image", img);
     //waitKey(0);
