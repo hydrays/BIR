@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<main>
+ <Ndim>73</Ndim>
+ <Mdim>86</Mdim>
+ <psf_ndim>51</psf_ndim>
+ <psf_mdim>51</psf_mdim>
+ <s0>1600</s0>
+ <sigma>1000</sigma>
+ <data_file_path>examples/septin2/WideField/</data_file_path>
+ <psf_file_path>examples/septin2/PSF/</psf_file_path>
+</main>
