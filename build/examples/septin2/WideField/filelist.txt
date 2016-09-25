@@ -1,0 +1,11 @@
+001_angle101_t000min00s000ms.tif
+002_angle112_t000min00s216ms.tif
+003_angle123_t000min00s431ms.tif
+004_angle133_t000min00s647ms.tif
+005_angle144_t000min00s863ms.tif
+006_angle155_t000min01s078ms.tif
+007_angle165_t000min01s294ms.tif
+008_angle176_t000min01s510ms.tif
+009_angle007_t000min01s725ms.tif
+010_angle017_t000min01s941ms.tif
+011_angle028_t000min02s157ms.tif
