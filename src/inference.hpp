@@ -66,6 +66,8 @@ public:
     int Ndim, Mdim;
     long int L;
 
+    int flag_show_source = 1;
+
     std::vector<Mat_<double>> img_list;
     std::vector<double> t_list;
 
@@ -94,6 +96,9 @@ public:
 
     double s0;
     double sigma;
+    double alpha0;
+    double alpha_inc;
+
     //double s0 = 17000;
     //double sigma = 1400;
     lbfgs_parameter_t param;

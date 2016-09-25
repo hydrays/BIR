@@ -21,10 +21,16 @@ int Inference::init(char arg[])
       std::cout << "psf_ndim: " << psf_ndim << std::endl;
       psf_mdim = pTree.get<int>("main.psf_mdim");
       std::cout << "psf_mdim: " << psf_mdim << std::endl;
-      s0 = pTree.get<int>("main.s0");
+      s0 = pTree.get<double>("main.s0");
       std::cout << "s0: " << s0 << std::endl;
-      sigma = pTree.get<int>("main.sigma");
+      sigma = pTree.get<double>("main.sigma");
       std::cout << "sigma: " << sigma << std::endl;
+      alpha0 = pTree.get<double>("main.alpha0");
+      std::cout << "alpha0: " << alpha0 << std::endl;
+      alpha0 = alpha0*PI/180.0;
+      alpha_inc = pTree.get<double>("main.alpha_inc");
+      std::cout << "alpha_inc: " << alpha_inc << std::endl;
+      alpha_inc = alpha_inc*PI/180.0;
 
       data_file_path = pTree.get<std::string>("main.data_file_path");
       std::cout << "data_file_path: " << data_file_path << std::endl;
@@ -185,9 +191,13 @@ int Inference::GetImage()
 	img = imread(data_file_name.c_str(), CV_LOAD_IMAGE_ANYDEPTH);
 	//img = imread(data_file_name.c_str(), 0);
 	//img = imread(data_file_name.c_str(), 0);
-	//namedWindow("Display Image", WINDOW_AUTOSIZE );
-	//imshow("Display Image", img);
-	//waitKey(0);
+
+	if (flag_show_source)
+	{
+	    namedWindow("Display Image", WINDOW_AUTOSIZE );
+	    imshow("Display Image", img);
+	    waitKey(0);
+	}
 
 	// double maxVal = 0.0;
 	// for (int i=0; i<Ndim; i++)
@@ -225,19 +235,19 @@ int Inference::GetImage()
 	// 	img2(i,j) = img2(i,j)/modulation[time_index];
 	//     }
 	// }
-	//**  ** add artificial noise **  **
-	for (int i=0; i<Ndim; i++)
-	{
-	    for (int j=0; j<Mdim; j++)
-	    {	
-		img2(i,j) = img2(i,j) + rnorm(e2)*sigma;
-		if (img2(i,j) < 0) img2(i,j)=0;
-	    }
-	}
+	// //**  ** add artificial noise **  **
+	// for (int i=0; i<Ndim; i++)
+	// {
+	//     for (int j=0; j<Mdim; j++)
+	//     {	
+	// 	img2(i,j) = img2(i,j) + rnorm(e2)*sigma;
+	// 	if (img2(i,j) < 0) img2(i,j)=0;
+	//     }
+	// }
 
 	img_list.push_back(img2);
 	//t = 0.1*time_index;
-	t = 1.762783 + 0.1919862*time_index;//initial angle: 25 degree; step: 16 degree
+	t = alpha0 + alpha_inc*time_index;//initial angle: 25 degree; step: 16 degree
 	t_list.push_back(t);
 	//evidence.ReadRawData(data_file_name.c_str());
 	//evidence.ReadTxtData(data_file_name.c_str());
@@ -788,9 +798,12 @@ int Inference::ReadRawPsf(const char * file_name)
 	    img(i,j) = img(i,j)/maxVal;
 	}
     }
-    //namedWindow("PSF", WINDOW_AUTOSIZE);
-    //imshow("PSF", img);
-    //waitKey(0);
+    if (flag_show_source)
+    {
+	namedWindow("PSF", WINDOW_AUTOSIZE);
+	imshow("PSF", img);
+	waitKey(0);
+    }
     return 0;
 }
 
@@ -800,9 +813,13 @@ int Inference::ReadTifPsf()
     //Mat img(psf_ndim, psf_mdim, DataType<float>::type);
     std::string file_name = psf_file_path + "psf.tif";
     Mat img = imread(file_name.c_str(), CV_LOAD_IMAGE_ANYDEPTH);
-    //namedWindow("Display Image", WINDOW_AUTOSIZE );
-    //imshow("Display Image", img);
-    //waitKey(0);
+
+    if (flag_show_source)
+    {
+	namedWindow("Display Image", WINDOW_AUTOSIZE );
+	imshow("Display Image", img);
+	waitKey(0);
+    }
 
     Mat_<double> img2(Ndim, Mdim);
     img.convertTo(img2, CV_64F);
