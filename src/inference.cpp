@@ -298,7 +298,7 @@ int Inference::UpdateMu()
 	// {
 	//     for (int j=0; j<Mdim; j++)
 	//     {
-	// 	printf("%lf\n", mu[k](i,j));
+	//       printf("%lf %lf\n", mu[k](i,j), psf(9,9));
 	//     }
 	// }
     }
@@ -871,7 +871,7 @@ int Inference::ReadTifPsf()
 	    img2(i,j) = img2(i,j)/sum;
 	}
     }
-    img.convertTo(psf, CV_64F);
+    img2.convertTo(psf, CV_64F);
     return 0;
 }
 
