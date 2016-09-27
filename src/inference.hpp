@@ -66,7 +66,7 @@ public:
     int Ndim, Mdim;
     long int L;
 
-    int flag_show_source = 1;
+    int flag_show_source = 0;
 
     std::vector<Mat_<double>> img_list;
     std::vector<double> t_list;
@@ -113,6 +113,8 @@ public:
     double evaluateAB(const int n, const double *, double *);    
     double evaluatePhi(const int n, const double *, double *);    
     int output_result();
+    double get_energy();
+    int readin_status();
     int OutputImage();
     int GetImage();
     int UpdateMu();

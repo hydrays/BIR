@@ -26,7 +26,9 @@ int main(int argc, char** argv)
     }
     inference.TuneAll();
     inference.output_result();
-    printf("Tune Region \n");
+    //inference.readin_status();
+    //double mlogp = inference.get_energy();
+    //printf("%.10f\n", mlogp);
     return 0;
 }	
 	

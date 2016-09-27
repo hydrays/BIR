@@ -6,7 +6,7 @@ int Inference::init(char arg[])
     boost::property_tree::ptree pTree;
     try {
       read_xml("config.xml", pTree);
-      std::cout << "reading config file: " << "config.xml" << std::endl;
+      //std::cout << "reading config file: " << "config.xml" << std::endl;
     }
     catch (boost::property_tree::xml_parser_error e) {
       std::cout << "error" << std::endl;
@@ -14,28 +14,28 @@ int Inference::init(char arg[])
 
     try {
       Ndim = pTree.get<int>("main.Ndim");
-      std::cout << "Ndim: " << Ndim << std::endl;
       Mdim = pTree.get<int>("main.Mdim");
-      std::cout << "Mdim: " << Mdim << std::endl;
       psf_ndim = pTree.get<int>("main.psf_ndim");
-      std::cout << "psf_ndim: " << psf_ndim << std::endl;
       psf_mdim = pTree.get<int>("main.psf_mdim");
-      std::cout << "psf_mdim: " << psf_mdim << std::endl;
       s0 = pTree.get<double>("main.s0");
-      std::cout << "s0: " << s0 << std::endl;
       sigma = pTree.get<double>("main.sigma");
-      std::cout << "sigma: " << sigma << std::endl;
       alpha0 = pTree.get<double>("main.alpha0");
-      std::cout << "alpha0: " << alpha0 << std::endl;
       alpha0 = alpha0*PI/180.0;
       alpha_inc = pTree.get<double>("main.alpha_inc");
-      std::cout << "alpha_inc: " << alpha_inc << std::endl;
       alpha_inc = alpha_inc*PI/180.0;
-
       data_file_path = pTree.get<std::string>("main.data_file_path");
-      std::cout << "data_file_path: " << data_file_path << std::endl;
       psf_file_path = pTree.get<std::string>("main.psf_file_path");
-      std::cout << "psf_file_path: " << psf_file_path << std::endl;
+
+      // std::cout << "Ndim: " << Ndim << std::endl;
+      // std::cout << "Mdim: " << Mdim << std::endl;
+      // std::cout << "psf_ndim: " << psf_ndim << std::endl;
+      // std::cout << "psf_mdim: " << psf_mdim << std::endl;
+      // std::cout << "s0: " << s0 << std::endl;
+      // std::cout << "sigma: " << sigma << std::endl;
+      // std::cout << "alpha0: " << alpha0 << std::endl;
+      // std::cout << "alpha_inc: " << alpha_inc << std::endl;
+      // std::cout << "data_file_path: " << data_file_path << std::endl;
+      // std::cout << "psf_file_path: " << psf_file_path << std::endl;
     }
     catch(boost::property_tree::ptree_bad_path e) {
       std::cout << "error" << std::endl;
@@ -142,7 +142,6 @@ int Inference::init(char arg[])
 
 int Inference::GetImage()
 {
-    printf("getting image...\n");
     std::string input_path = data_file_path;
     std::string file_list_name = input_path + "filelist.txt";
     FILE * file_list;
@@ -168,7 +167,7 @@ int Inference::GetImage()
     while(fscanf(file_list, "%s", data_file_name_part)!=EOF)
     {
         data_file_name = input_path + data_file_name_part;
-    	std::cout << data_file_name << std::endl;
+    	//std::cout << data_file_name << std::endl;
 
     	//img = imread(data_file_name.c_str());
 	// std::ifstream myData(data_file_name.c_str(), std::ios::binary);
@@ -212,14 +211,14 @@ int Inference::GetImage()
 	//     }
 	// }
 	
-	printf("test0: %d: %d\n", img.rows, img.cols);
+	//printf("test0: %d: %d\n", img.rows, img.cols);
 	//printf("test0: %d\n", img.at<int>(10,10));
-	printf("test0: %d\n", img.depth());
+	//printf("test0: %d\n", img.depth());
 	Mat_<double> img2(Ndim, Mdim);
 	img.convertTo(img2, CV_64F);
 	//printf("test0: %d: %d\n", img.rows, img.cols);
 	//printf("test0: %f\n", img2(2,2));
-	printf("test1: %f: %f\n", img2(10,10), img2(10,10));
+	//printf("test1: %f: %f\n", img2(10,10), img2(10,10));
 	// for (int i=0; i<psf_ndim; i++)
 	// {
 	//     for (int j=0; j<psf_mdim; j++)
@@ -327,6 +326,35 @@ int Inference::output_result()
     return 0;
 }
 
+double Inference::get_energy()
+{
+    double mlogp = 0.0;
+    double logp;
+    double t;
+    int l;
+    UpdateMu();
+    for(int k=0; k< img_list.size(); k++)
+    {
+    	t = t_list[k];
+	for (int i=0; i<Ndim; i++)
+	{
+	    for (int j=0; j<Mdim; j++)
+	    {
+		l = i*Mdim+j;
+		// Gaussian
+		logp = log(sqrt(2*PI)*sigma) -
+		    pow(img_list[k](i,j) - mu[k](i,j) - s0, 2)/(2.0*sigma*sigma);
+		mlogp = mlogp - logp;
+		// // Poisson
+		// logp = -mu[k](i,j) + img_list[k](i,j)*log(mu[k](i,j)); 
+		// mlogp = mlogp - logp;
+		// temp(i,j) = (1.0 - img_list[k](i,j)/mu[k](i,j));
+	    }
+	}
+    }
+    return mlogp;
+}
+
 int Inference::OutputImage()
 {
     for (int k=0; k<img_list.size(); k++)
@@ -372,15 +400,19 @@ double Inference::TuneAll()
 	return -1;
     }    
     int l;
+    //readin_status();
     for (int i=0; i<Ndim; i++)
     {
-	for (int j=0; j<Mdim; j++)
-	{
-	    l = i*Mdim+j;
-	    x[3*l] = 100.0;
-	    x[3*l+1] = 100.0;
-	    x[3*l+2] = 100.0;
-	}
+    	for (int j=0; j<Mdim; j++)
+    	{
+    	    l = i*Mdim+j;
+    	    x[3*l] = 100.0 + rnorm(e2)*20;
+    	    x[3*l+1] = 100.0 + rnorm(e2)*20;
+    	    x[3*l+2] = 100.0 + rnorm(e2)*20;
+    	    // x[3*l] = a(i,j);
+    	    // x[3*l+1] = b(i,j);
+    	    // x[3*l+2] = phi(i,j);
+    	}
     }
     int status = lbfgs(3*L,x,&mlogp,_evaluate,_Progress,this,&param);
     if (status == 0)
@@ -926,5 +958,29 @@ int Inference::conv2(const Mat_<double> &img, const Mat_<double>& kernel, Mat_<d
     int borderMode = BORDER_CONSTANT;
     //filter2D(source, dest, img.depth(), flip(kernel), anchor, 0, borderMode);
     filter2D(source, dest, img.depth(), (kernel), anchor, 0, borderMode);
+    return 0;
+}
+
+int Inference::readin_status()
+{
+    double sA, sB, sphi;
+    FILE * fp;
+    //std::cout << "read in file " << output_file_name << "\n";
+    if ( (fp = fopen(output_file_name.c_str(), "r")) == NULL )
+    {
+	std::cout << "file open failed. \n";
+	getchar();
+    }
+    for (int i=0; i<Ndim; i++)
+    {
+	for (int j=0; j<Mdim; j++)
+	{
+	    fscanf(fp, "%lf %lf %lf\n", &sA, &sB, &sphi);
+	    a(i,j) = sqrt(sA);
+	    b(i,j) = sqrt(sB);
+	    phi(i,j) = sphi;
+	}    
+    }
+    fclose(fp);
     return 0;
 }
