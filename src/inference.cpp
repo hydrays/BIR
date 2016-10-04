@@ -46,7 +46,7 @@ int Inference::init(char arg[])
     // Options for BFGS
     lbfgs_parameter_init(&param);
     param.m = 10;
-    param.epsilon = 1e-8;
+    param.epsilon = 1e-4;
     param.max_iterations = 100000;
     param.linesearch = LBFGS_LINESEARCH_BACKTRACKING_WOLFE;
     //param.orthantwise_c = 0.01;
@@ -158,6 +158,9 @@ int Inference::GetImage()
     Mat img;
     double t;
 
+    double modulation[10] = {1.,  1.01703833,  1.03761562,  1.03441648,  1.02540195,
+			     1.0206583 ,  1.00546496,  0.96914922,  0.96138972,  0.96267346};
+
     // double modulation[22] = {1., 1.02466083,  1.04660935,  1.08361631,  1.1068704 ,
     // 			     1.09206186,  1.08067632,  1.0575976 ,  1.01587737,  0.99581761,
     // 			     0.97210487,  0.97560107,  1.0022576 ,  1.02362342,  1.04979167,
@@ -226,23 +229,23 @@ int Inference::GetImage()
 	// 	img(i,j) = img(i,j)/maxVal;
 	//     }
 	// }
-	// **  ** modulation **  **
-	// for (int i=0; i<Ndim; i++)
-	// {
-	//     for (int j=0; j<Mdim; j++)
-	//     {	
-	// 	img2(i,j) = img2(i,j)/modulation[time_index];
-	//     }
-	// }
-	// //**  ** add artificial noise **  **
-	// for (int i=0; i<Ndim; i++)
-	// {
-	//     for (int j=0; j<Mdim; j++)
-	//     {	
-	// 	img2(i,j) = img2(i,j) + rnorm(e2)*sigma;
-	// 	if (img2(i,j) < 0) img2(i,j)=0;
-	//     }
-	// }
+	//**  ** modulation **  **
+	for (int i=0; i<Ndim; i++)
+	{
+	    for (int j=0; j<Mdim; j++)
+	    {	
+		img2(i,j) = img2(i,j)/modulation[time_index];
+	    }
+	}
+	//**  ** add artificial noise **  **
+	for (int i=0; i<Ndim; i++)
+	{
+	    for (int j=0; j<Mdim; j++)
+	    {	
+		img2(i,j) = img2(i,j) + rnorm(e2)*sigma*0.6;
+		if (img2(i,j) < 0) img2(i,j)=0;
+	    }
+	}
 
 	img_list.push_back(img2);
 	//t = 0.1*time_index;
@@ -843,7 +846,8 @@ int Inference::ReadTifPsf()
 {
     //Mat_<float> img(psf_ndim, psf_mdim);
     //Mat img(psf_ndim, psf_mdim, DataType<float>::type);
-    std::string file_name = psf_file_path + "psf.tif";
+    //std::string file_name = psf_file_path + "psf.tif";
+    std::string file_name = psf_file_path + "psf.png";
     Mat img = imread(file_name.c_str(), CV_LOAD_IMAGE_ANYDEPTH);
 
     if (flag_show_source)

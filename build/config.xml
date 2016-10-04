@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <main>
- <Ndim>73</Ndim>
- <Mdim>86</Mdim>
- <psf_ndim>17</psf_ndim>
- <psf_mdim>17</psf_mdim>
- <s0>15000</s0>
- <sigma>20</sigma>
+ <Ndim>27</Ndim>
+ <Mdim>53</Mdim>
+ <psf_ndim>129</psf_ndim>
+ <psf_mdim>129</psf_mdim>
+ <s0>13000</s0>
+ <sigma>1300</sigma>
  <alpha0>0</alpha0>
  <alpha_inc>18</alpha_inc>
- <data_file_path>examples/gen_septin2_20/</data_file_path>
- <psf_file_path>examples/gen_septin2_20/</psf_file_path>
+ <data_file_path>examples/Spine1/WideField/</data_file_path>
+ <psf_file_path>examples/Spine1/PSF/</psf_file_path>
 </main>
